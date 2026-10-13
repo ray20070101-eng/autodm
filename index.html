@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoDM｜IG 留言自動私訊設定器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef0f6;
+    --surface: #ffffff;
+    --ink: #1c1b29;
+    --muted: #6b6a7c;
+    --line: #d9dbe6;
+    --soft: #f5f6fb;
+    --accent: #c13584;
+    --focus: #5b51d8;
+    --ok: #1d8a5b;
+    --warn: #b36b00;
+    --ig: linear-gradient(135deg, #f9a03f 0%, #e1306c 50%, #7b3fe4 100%);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 22px 24px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: var(--ig);
+    display: grid; place-items: center;
+    color: #fff;
+  }
+  .logo svg { width: 22px; height: 22px; }
+  .brand h1 {
+    margin: 0;
+    font-family: "Bricolage Grotesque", "Noto Sans TC", sans-serif;
+    font-size: 26px; letter-spacing: -0.02em; line-height: 1.1;
+  }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toggle-line { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; padding: 6px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; }
+  .toggle-line input { accent-color: var(--ink); width: 16px; height: 16px; }
+
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background .15s, border-color .15s;
+  }
+  .btn:hover { background: var(--soft); border-color: #bfc2d4; }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primary:hover { background: #34324a; }
+  .btn.small { padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+  .btn.danger { color: #b3261e; }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 12px 24px 48px;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr;
+    grid-template-areas: "post" "phone" "rules" "stats";
+  }
+  @media (min-width: 1000px) {
+    .layout {
+      grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.15fr) 340px;
+      grid-template-areas:
+        "rules post phone"
+        "stats stats stats";
+      align-items: start;
+    }
+  }
+  .panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    padding: 20px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 18px; }
+  .panel .hint { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+  #rulesPanel { grid-area: rules; }
+  #postPanel { grid-area: post; }
+  #phonePanel { grid-area: phone; background: transparent; border: none; padding: 0; }
+  #statsPanel { grid-area: stats; }
+
+  /* ---------- Rule form ---------- */
+  label.field { display: block; margin-bottom: 12px; }
+  label.field > span { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  label.field small { color: var(--muted); font-weight: 400; }
+  input[type=text], textarea, select {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 12px;
+    background: #fff;
+  }
+  textarea { resize: vertical; min-height: 84px; }
+  input[type=text]:focus, textarea:focus, select:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px rgba(91,81,216,.18); }
+  .form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .form-msg { font-size: 13px; min-height: 20px; margin-top: 8px; }
+  .form-msg.err { color: #b3261e; }
+  .form-msg.ok { color: var(--ok); }
+
+  .rule-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 10px; }
+  .rule {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: var(--soft);
+  }
+  .rule.off { opacity: .55; }
+  .rule.editing { border-color: var(--focus); background: #f1f0ff; }
+  .rule-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 1px 10px; font-size: 13px; font-weight: 500;
+  }
+  .chip.mode { background: transparent; color: var(--muted); border-style: dashed; }
+  .rule-dm { margin: 8px 0; font-size: 13.5px; color: #3b3a4d; white-space: pre-wrap; word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .rule-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rule-foot .meta { font-size: 12.5px; color: var(--muted); }
+  .rule-foot .btns { display: flex; gap: 6px; }
+
+  .switch { position: relative; width: 38px; height: 22px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; z-index: 2; }
+  .switch i { position: absolute; inset: 0; background: #c6c8d6; border-radius: 999px; transition: background .15s; }
+  .switch i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform .15s; }
+  .switch input:checked + i { background: var(--ok); }
+  .switch input:checked + i::after { transform: translateX(16px); }
+  .switch input:focus-visible + i { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .empty { color: var(--muted); font-size: 14px; padding: 16px; border: 1px dashed var(--line); border-radius: 12px; text-align: center; }
+
+  /* ---------- Post ---------- */
+  .post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--ig); color: #fff;
+    display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none;
+  }
+  .avatar.fan { background: #dfe1ee; color: #4b4a60; }
+  .post-head b { display: block; line-height: 1.2; }
+  .post-head small { color: var(--muted); }
+  .photo {
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    background:
+      radial-gradient(circle at 50% 52%, #fff6dd 0 24%, #f2d6a0 25% 27%, #fff 28% 36%, #e8e9f2 37% 39%, transparent 40%),
+      radial-gradient(circle at 44% 48%, #f4c15a 0 5%, transparent 6%),
+      radial-gradient(circle at 56% 55%, #e98b4f 0 4%, transparent 5%),
+      radial-gradient(circle at 50% 50%, #f7d58a 0 14%, transparent 15%),
+      linear-gradient(160deg, #3f4a63, #272b3f);
+    position: relative;
+  }
+  .caption { margin: 12px 0 16px; }
+  .caption .kw { font-weight: 700; }
+
+  .comments { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 12px; max-height: 340px; overflow-y: auto; }
+  .comment { display: flex; gap: 10px; }
+  .comment .body { min-width: 0; flex: 1; }
+  .comment .line { word-break: break-word; }
+  .comment .line b { margin-right: 6px; }
+  .comment .sub { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+  .tag { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; }
+  .tag.sent { background: #e2f5ec; color: var(--ok); }
+  .tag.pending { background: #fff1d6; color: var(--warn); }
+  .tag.skipped { background: #ececf3; color: var(--muted); }
+  .reply { margin: 6px 0 0 0; padding-left: 12px; border-left: 3px solid #e6c6dc; font-size: 14px; }
+  .reply b { color: var(--accent); margin-right: 6px; }
+
+  .composer { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 10px; }
+  .composer .row { display: flex; gap: 8px; }
+  .composer .row input[type=text] { flex: 1; min-width: 0; }
+  .samples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .samples button { border: 1px solid var(--line); background: var(--soft); border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 13px; }
+  .samples button:hover { border-color: #bfc2d4; background: #fff; }
+
+  /* ---------- Phone ---------- */
+  .phone-wrap { display: grid; gap: 10px; }
+  .phone-title { margin: 0 4px; font-size: 18px; font-weight: 700; }
+  .phone-sub { margin: -6px 4px 0; color: var(--muted); font-size: 13px; }
+  .phone {
+    background: #14131f;
+    border-radius: 36px;
+    padding: 10px;
+    box-shadow: 0 10px 30px rgba(28,27,41,.18);
+  }
+  .screen {
+    background: #fff;
+    border-radius: 28px;
+    height: 520px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .screen-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .screen-head b { display: block; line-height: 1.2; font-size: 14px; }
+  .screen-head small { color: var(--muted); font-size: 12px; }
+  .threads { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--soft); min-height: 46px; align-items: center; }
+  .threads button { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; cursor: pointer; }
+  .threads button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .threads .none { font-size: 12.5px; color: var(--muted); }
+  .chat { flex: 1; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .bubble {
+    align-self: flex-start;
+    max-width: 82%;
+    padding: 9px 13px;
+    border-radius: 18px 18px 18px 4px;
+    background: var(--ig);
+    color: #fff;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: pop .25s ease-out;
+  }
+  .bubble time { display: block; margin-top: 4px; font-size: 11px; opacity: .8; }
+  .typing { align-self: flex-start; background: #ececf3; border-radius: 18px 18px 18px 4px; padding: 10px 14px; display: flex; gap: 4px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: #8d8ca1; animation: blink 1s infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; }
+  .typing i:nth-child(3) { animation-delay: .3s; }
+  .chat .placeholder { margin: auto; text-align: center; color: var(--muted); font-size: 13.5px; padding: 0 20px; }
+  @keyframes pop { from { transform: translateY(6px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes blink { 0%, 80%, 100% { opacity: .3; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .bubble, .typing i { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+
+  /* ---------- Stats ---------- */
+  .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); margin-bottom: 20px; }
+  .stat { background: var(--soft); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 26px; line-height: 1.2; font-family: "Bricolage Grotesque", "Noto Sans TC", sans-serif; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .stats-cols { display: grid; gap: 24px; grid-template-columns: 1fr; }
+  @media (min-width: 800px) { .stats-cols { grid-template-columns: 1fr 1.5fr; } }
+  .stats-cols h3 { margin: 0 0 10px; font-size: 15px; }
+  .bars { display: grid; gap: 10px; }
+  .bar-row .lbl { display: flex; justify-content: space-between; font-size: 13.5px; gap: 8px; }
+  .bar-row .lbl span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 8px; background: var(--soft); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--ig); border-radius: 999px; transition: width .3s; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td.msg { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .note { max-width: 1320px; margin: 0 auto; padding: 0 24px 40px; color: var(--muted); font-size: 13px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.6-.8L3 21l1.9-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+    </div>
+    <div>
+      <h1>AutoDM</h1>
+      <p>設定關鍵字，留言命中就自動私訊（模擬版）</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <label class="toggle-line"><input type="checkbox" id="optOnce"> 同一人同一規則只私訊一次</label>
+    <label class="toggle-line"><input type="checkbox" id="optReply"> 同時在留言下公開回覆</label>
+    <button class="btn" id="btnReset" type="button">重設為範例</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- 規則設定 -->
+  <section class="panel" id="rulesPanel" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">自動回覆規則</h2>
+    <p class="hint">留言命中任一關鍵字，就會寄出你設定的私訊。多條規則時，由上往下，第一條命中的規則會執行。</p>
+
+    <form id="ruleForm" novalidate>
+      <label class="field">
+        <span>關鍵字 <small>（用逗號分隔，例如：食譜, 做法, recipe）</small></span>
+        <input type="text" id="fKeywords" autocomplete="off" placeholder="食譜, 做法">
+      </label>
+      <label class="field">
+        <span>比對方式</span>
+        <select id="fMode">
+          <option value="contains">留言包含關鍵字就觸發</option>
+          <option value="exact">留言必須只有關鍵字才觸發</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>私訊內容 <small>（可用 {name} 帶入留言者的名字）</small></span>
+        <textarea id="fDm" placeholder="嗨 {name}！完整食譜在這裡：https://example.com/recipe"></textarea>
+      </label>
+      <label class="field">
+        <span>公開回覆 <small>（選填，需開啟上方「公開回覆」）</small></span>
+        <input type="text" id="fPublic" autocomplete="off" placeholder="已私訊給你囉！">
+      </label>
+      <div class="form-actions">
+        <button class="btn primary" type="submit" id="btnSave">新增規則</button>
+        <button class="btn" type="button" id="btnCancel" hidden>取消編輯</button>
+      </div>
+      <div class="form-msg" id="formMsg" role="status" aria-live="polite"></div>
+    </form>
+
+    <ul class="rule-list" id="ruleList"></ul>
+  </section>
+
+  <!-- 模擬貼文 -->
+  <section class="panel" id="postPanel" aria-labelledby="postTitle">
+    <h2 id="postTitle">模擬貼文留言區</h2>
+    <p class="hint">用假帳號留言，測試規則會不會觸發。</p>
+
+    <div class="post-head">
+      <div class="avatar" aria-hidden="true">M</div>
+      <div><b>mimi.kitchen</b><small>創作者 · 美食</small></div>
+    </div>
+    <div class="photo" role="img" aria-label="一盤香蒜奶油義大利麵的示意圖"></div>
+    <p class="caption">今天做了香蒜奶油義大利麵，十五分鐘搞定。想要完整食譜，在底下留言「<span class="kw">食譜</span>」，我私訊給你。</p>
+
+    <ul class="comments" id="commentList" aria-live="polite"></ul>
+
+    <form class="composer" id="commentForm" novalidate>
+      <div class="row">
+        <label class="sr" for="cUser">留言者帳號</label>
+        <input type="text" id="cUser" autocomplete="off" placeholder="留言者帳號">
+        <button class="btn" type="button" id="btnShuffle">換一個人</button>
+      </div>
+      <div class="row">
+        <label class="sr" for="cText">留言內容</label>
+        <input type="text" id="cText" autocomplete="off" placeholder="輸入留言，例如：食譜">
+        <button class="btn primary" type="submit">送出留言</button>
+      </div>
+      <div class="samples" id="samples"><span>快速測試：</span></div>
+    </form>
+  </section>
+
+  <!-- 手機 DM -->
+  <section id="phonePanel" aria-labelledby="phoneTitle">
+    <div class="phone-wrap">
+      <h2 class="phone-title" id="phoneTitle">留言者收到的私訊</h2>
+      <p class="phone-sub">切換上方帳號，看不同人的私訊視窗。</p>
+      <div class="phone">
+        <div class="screen">
+          <div class="screen-head">
+            <div class="avatar" aria-hidden="true">M</div>
+            <div><b>mimi.kitchen</b><small>私人訊息</small></div>
+          </div>
+          <div class="threads" id="threads"></div>
+          <div class="chat" id="chat" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 統計 -->
+  <section class="panel" id="statsPanel" aria-labelledby="statsTitle">
+    <h2 id="statsTitle">觸發紀錄與統計</h2>
+    <p class="hint">資料存在這個瀏覽器裡，重新整理不會消失。</p>
+    <div class="stat-grid">
+      <div class="stat"><b id="stComments">0</b><span>收到的留言</span></div>
+      <div class="stat"><b id="stSent">0</b><span>已自動私訊</span></div>
+      <div class="stat"><b id="stRate">0%</b><span>命中率</span></div>
+    </div>
+    <div class="stats-cols">
+      <div>
+        <h3>各規則私訊次數</h3>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div>
+        <h3>已發送的私訊</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>時間</th><th>收件人</th><th>規則</th><th>內容</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<p class="note">這是前端模擬版：不會連到真實的 Instagram。真正的自動私訊需要 Instagram Graph API、Meta 開發者審核與後端伺服器接收 webhook。</p>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'autodm-v1';
+  var CREATOR = 'mimi.kitchen';
+  var FANS = ['amy_eats', 'jason.chen', 'foodie_lin', 'kiki0314', 'daniel_w', 'yuna.cooks', 'tom_hungry', 'sophie.tw'];
+  var SAMPLES = ['食譜', '想要食譜！', '求做法', 'Recipe please', '看起來好好吃', '請問用什麼鍋子？'];
+
+  function defaultState() {
+    return {
+      rules: [{
+        id: uid(),
+        keywords: ['食譜', 'recipe'],
+        mode: 'contains',
+        dm: '嗨 {name}！謝謝你的留言 🍝\n完整香蒜奶油義大利麵食譜在這裡：\nhttps://example.com/garlic-butter-pasta\n煮好記得回來跟我說味道怎麼樣！',
+        publicReply: '已私訊給你囉！',
+        enabled: true
+      }],
+      comments: [],
+      dms: [],
+      settings: { once: true, reply: true }
+    };
+  }
+
+  var state = load();
+  var ui = { activeThread: null, typingUser: null, editingId: null };
+
+  /* ---------- helpers ---------- */
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function $(id) { return document.getElementById(id); }
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      if (k === 'class') el.className = props[k];
+      else if (k === 'text') el.textContent = props[k];
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), props[k]);
+      else el.setAttribute(k, props[k]);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c == null) continue;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return el;
+  }
+  function clock(ts) {
+    return new Date(ts).toLocaleTimeString('zh-TW', { hour12: false });
+  }
+  function normalize(s) {
+    return String(s).toLowerCase().replace(/[\s，,。.！!？?、~～「」『』"'“”‘’]/g, '');
+  }
+  function parseKeywords(s) {
+    return s.split(/[,，、\n]/).map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  function ruleById(id) {
+    for (var i = 0; i < state.rules.length; i++) if (state.rules[i].id === id) return state.rules[i];
+    return null;
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && Array.isArray(data.rules) && Array.isArray(data.comments) && Array.isArray(data.dms)) {
+          data.settings = data.settings || { once: true, reply: true };
+          return data;
+        }
+      }
+    } catch (e) { /* storage unavailable: fall back to defaults */ }
+    return defaultState();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  /* ---------- matching ---------- */
+  function matches(rule, text) {
+    var t = normalize(text);
+    if (!t) return false;
+    return rule.keywords.some(function (kw) {
+      var k = normalize(kw);
+      if (!k) return false;
+      return rule.mode === 'exact' ? t === k : t.indexOf(k) !== -1;
+    });
+  }
+  function findRule(text) {
+    for (var i = 0; i < state.rules.length; i++) {
+      if (state.rules[i].enabled && matches(state.rules[i], text)) return state.rules[i];
+    }
+    return null;
+  }
+
+  /* ---------- comment flow ---------- */
+  function postComment(user, text) {
+    var comment = { id: uid(), user: user, text: text, time: Date.now(), ruleId: null, status: 'none', reply: '' };
+    state.comments.push(comment);
+
+    var rule = findRule(text);
+    if (rule) {
+      comment.ruleId = rule.id;
+      var already = state.dms.some(function (d) { return d.user === user && d.ruleId === rule.id; });
+      if (state.settings.once && already) {
+        comment.status = 'skipped';
+      } else {
+        comment.status = 'pending';
+        ui.activeThread = user;
+        ui.typingUser = user;
+        setTimeout(function () { deliver(comment, rule); }, 700);
+      }
+    }
+    save();
+    renderAll();
+    var list = $('commentList');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function deliver(comment, rule) {
+    var body = rule.dm.replace(/\{name\}/g, '@' + comment.user);
+    state.dms.push({ id: uid(), user: comment.user, ruleId: rule.id, ruleName: rule.keywords.join(', '), text: body, time: Date.now() });
+    comment.status = 'sent';
+    if (state.settings.reply && rule.publicReply) comment.reply = rule.publicReply;
+    if (ui.typingUser === comment.user) ui.typingUser = null;
+    save();
+    renderAll();
+  }
+
+  /* ---------- render: rules ---------- */
+  function renderRules() {
+    var list = $('ruleList');
+    list.innerHTML = '';
+    if (!state.rules.length) {
+      list.appendChild(h('li', { class: 'empty', text: '還沒有規則。在上方填入關鍵字和私訊內容，按「新增規則」。' }));
+      return;
+    }
+    state.rules.forEach(function (r) {
+      var hits = state.dms.filter(function (d) { return d.ruleId === r.id; }).length;
+      var chips = h('div', { class: 'chips' });
+      r.keywords.forEach(function (k) { chips.appendChild(h('span', { class: 'chip', text: k })); });
+      chips.appendChild(h('span', { class: 'chip mode', text: r.mode === 'exact' ? '完全相符' : '包含即可' }));
+
+      var toggle = h('input', { type: 'checkbox', 'aria-label': r.enabled ? '停用這條規則' : '啟用這條規則' });
+      toggle.checked = r.enabled;
+      toggle.addEventListener('change', function () {
+        r.enabled = toggle.checked;
+        save(); renderRules();
+      });
+      var sw = h('label', { class: 'switch' }, toggle, h('i'));
+
+      var li = h('li', { class: 'rule' + (r.enabled ? '' : ' off') + (ui.editingId === r.id ? ' editing' : '') },
+        h('div', { class: 'rule-head' }, chips, sw),
+        h('div', { class: 'rule-dm', text: r.dm }),
+        h('div', { class: 'rule-foot' },
+          h('span', { class: 'meta', text: '已私訊 ' + hits + ' 次' + (r.enabled ? '' : '（已停用）') }),
+          h('span', { class: 'btns' },
+            h('button', { class: 'btn small', type: 'button', text: '編輯', onclick: function () { startEdit(r.id); } }),
+            h('button', { class: 'btn small danger', type: 'button', text: '刪除', onclick: function () { removeRule(r.id); } })
+          )
+        )
+      );
+      list.appendChild(li);
+    });
+  }
+
+  function startEdit(id) {
+    var r = ruleById(id);
+    if (!r) return;
+    ui.editingId = id;
+    $('fKeywords').value = r.keywords.join(', ');
+    $('fMode').value = r.mode;
+    $('fDm').value = r.dm;
+    $('fPublic').value = r.publicReply || '';
+    $('btnSave').textContent = '儲存修改';
+    $('btnCancel').hidden = false;
+    setMsg('正在編輯這條規則。', '');
+    $('fKeywords').focus();
+    renderRules();
+  }
+  function stopEdit() {
+    ui.editingId = null;
+    $('ruleForm').reset();
+    $('btnSave').textContent = '新增規則';
+    $('btnCancel').hidden = true;
+    renderRules();
+  }
+  function removeRule(id) {
+    var r = ruleById(id);
+    if (!r) return;
+    if (!confirm('確定要刪除「' + r.keywords.join(', ') + '」這條規則嗎？')) return;
+    state.rules = state.rules.filter(function (x) { return x.id !== id; });
+    if (ui.editingId === id) stopEdit();
+    save(); renderAll();
+  }
+  function setMsg(text, kind) {
+    var m = $('formMsg');
+    m.textContent = text;
+    m.className = 'form-msg' + (kind ? ' ' + kind : '');
+  }
+
+  /* ---------- render: comments ---------- */
+  function renderComments() {
+    var list = $('commentList');
+    list.innerHTML = '';
+    if (!state.comments.length) {
+      list.appendChild(h('li', { class: 'empty', text: '還沒有留言。試試下方的「快速測試」按鈕。' }));
+      return;
+    }
+    state.comments.forEach(function (c) {
+      var sub = h('div', { class: 'sub' }, h('span', { text: clock(c.time) }));
+      if (c.status === 'sent') sub.appendChild(h('span', { class: 'tag sent', text: '已自動私訊' }));
+      if (c.status === 'pending') sub.appendChild(h('span', { class: 'tag pending', text: '私訊發送中…' }));
+      if (c.status === 'skipped') sub.appendChild(h('span', { class: 'tag skipped', text: '命中但已私訊過，略過' }));
+
+      var body = h('div', { class: 'body' },
+        h('div', { class: 'line' }, h('b', { text: c.user }), h('span', { text: c.text })),
+        sub
+      );
+      if (c.reply) body.appendChild(h('div', { class: 'reply' }, h('b', { text: CREATOR }), h('span', { text: c.reply })));
+
+      list.appendChild(h('li', { class: 'comment' },
+        h('div', { class: 'avatar fan', 'aria-hidden': 'true', text: c.user.charAt(0).toUpperCase() }),
+        body
+      ));
+    });
+  }
+
+  /* ---------- render: phone ---------- */
+  function threadUsers() {
+    var seen = [];
+    state.dms.forEach(function (d) { if (seen.indexOf(d.user) === -1) seen.push(d.user); });
+    if (ui.typingUser && seen.indexOf(ui.typingUser) === -1) seen.push(ui.typingUser);
+    return seen;
+  }
+  function renderPhone() {
+    var users = threadUsers();
+    var bar = $('threads');
+    bar.innerHTML = '';
+    if (!users.length) {
+      bar.appendChild(h('span', { class: 'none', text: '還沒有人收到私訊' }));
+    } else {
+      if (!ui.activeThread || users.indexOf(ui.activeThread) === -1) ui.activeThread = users[users.length - 1];
+      users.forEach(function (u) {
+        bar.appendChild(h('button', {
+          type: 'button', text: '@' + u,
+          'aria-pressed': u === ui.activeThread ? 'true' : 'false',
+          onclick: function () { ui.activeThread = u; renderPhone(); }
+        }));
+      });
+    }
+
+    var chat = $('chat');
+    chat.innerHTML = '';
+    var msgs = state.dms.filter(function (d) { return d.user === ui.activeThread; });
+    if (!msgs.length && ui.typingUser !== ui.activeThread) {
+      chat.appendChild(h('div', { class: 'placeholder', text: '留言命中關鍵字後，私訊會出現在這裡。' }));
+      return;
+    }
+    msgs.forEach(function (d) {
+      chat.appendChild(h('div', { class: 'bubble' }, d.text, h('time', { text: clock(d.time) })));
+    });
+    if (ui.typingUser && ui.typingUser === ui.activeThread) {
+      chat.appendChild(h('div', { class: 'typing', 'aria-label': '對方正在輸入' }, h('i'), h('i'), h('i')));
+    }
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  /* ---------- render: stats ---------- */
+  function renderStats() {
+    var total = state.comments.length;
+    var sent = state.dms.length;
+    var hit = state.comments.filter(function (c) { return c.ruleId; }).length;
+    $('stComments').textContent = total;
+    $('stSent').textContent = sent;
+    $('stRate').textContent = total ? Math.round(hit / total * 100) + '%' : '0%';
+
+    var bars = $('bars');
+    bars.innerHTML = '';
+    if (!state.rules.length) {
+      bars.appendChild(h('div', { class: 'empty', text: '沒有規則可統計。' }));
+    } else {
+      var counts = state.rules.map(function (r) {
+        return { name: r.keywords.join(', '), n: state.dms.filter(function (d) { return d.ruleId === r.id; }).length };
+      });
+      var max = Math.max.apply(null, counts.map(function (c) { return c.n; }).concat([1]));
+      counts.forEach(function (c) {
+        var fill = h('i');
+        fill.style.width = (c.n / max * 100) + '%';
+        bars.appendChild(h('div', { class: 'bar-row' },
+          h('div', { class: 'lbl' }, h('span', { text: c.name }), h('span', { text: c.n + ' 次' })),
+          h('div', { class: 'bar' }, fill)
+        ));
+      });
+    }
+
+    var body = $('logBody');
+    body.innerHTML = '';
+    if (!state.dms.length) {
+      body.appendChild(h('tr', {}, h('td', { colspan: '4', text: '還沒有私訊紀錄。' })));
+    } else {
+      state.dms.slice().reverse().slice(0, 30).forEach(function (d) {
+        body.appendChild(h('tr', {},
+          h('td', { text: clock(d.time) }),
+          h('td', { text: '@' + d.user }),
+          h('td', { text: d.ruleName }),
+          h('td', { class: 'msg', text: d.text.replace(/\n/g, ' ') })
+        ));
+      });
+    }
+  }
+
+  function renderAll() {
+    renderRules();
+    renderComments();
+    renderPhone();
+    renderStats();
+  }
+
+  /* ---------- events ---------- */
+  $('ruleForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var kws = parseKeywords($('fKeywords').value);
+    var dm = $('fDm').value.trim();
+    if (!kws.length) { setMsg('請至少輸入一個關鍵字。', 'err'); $('fKeywords').focus(); return; }
+    if (!dm) { setMsg('請輸入私訊內容。', 'err'); $('fDm').focus(); return; }
+
+    var data = { keywords: kws, mode: $('fMode').value, dm: dm, publicReply: $('fPublic').value.trim() };
+    if (ui.editingId) {
+      var r = ruleById(ui.editingId);
+      if (r) { r.keywords = data.keywords; r.mode = data.mode; r.dm = data.dm; r.publicReply = data.publicReply; }
+      setMsg('已儲存修改。', 'ok');
+      ui.editingId = null;
+    } else {
+      state.rules.push({ id: uid(), keywords: data.keywords, mode: data.mode, dm: data.dm, publicReply: data.publicReply, enabled: true });
+      setMsg('已新增規則，去右邊留言區試試看。', 'ok');
+    }
+    $('ruleForm').reset();
+    $('btnSave').textContent = '新增規則';
+    $('btnCancel').hidden = true;
+    save(); renderAll();
+  });
+  $('btnCancel').addEventListener('click', function () { setMsg('', ''); stopEdit(); });
+
+  $('commentForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var user = $('cUser').value.trim().replace(/^@/, '');
+    var text = $('cText').value.trim();
+    if (!user) { $('cUser').focus(); return; }
+    if (!text) { $('cText').focus(); return; }
+    postComment(user, text);
+    $('cText').value = '';
+    $('cText').focus();
+  });
+
+  function shuffleUser() {
+    var pick = FANS[Math.floor(Math.random() * FANS.length)];
+    $('cUser').value = pick;
+  }
+  $('btnShuffle').addEventListener('click', shuffleUser);
+
+  var samples = $('samples');
+  SAMPLES.forEach(function (s) {
+    samples.appendChild(h('button', {
+      type: 'button', text: s,
+      onclick: function () { $('cText').value = s; $('cText').focus(); }
+    }));
+  });
+
+  $('optOnce').addEventListener('change', function () { state.settings.once = this.checked; save(); });
+  $('optReply').addEventListener('change', function () { state.settings.reply = this.checked; save(); });
+
+  $('btnReset').addEventListener('click', function () {
+    if (!confirm('這會清除所有規則、留言與私訊，並還原成範例。確定嗎？')) return;
+    state = defaultState();
+    ui = { activeThread: null, typingUser: null, editingId: null };
+    $('ruleForm').reset();
+    $('btnSave').textContent = '新增規則';
+    $('btnCancel').hidden = true;
+    setMsg('', '');
+    $('optOnce').checked = state.settings.once;
+    $('optReply').checked = state.settings.reply;
+    save(); renderAll();
+  });
+
+  /* ---------- init ---------- */
+  // 重新整理時若有尚未送達的私訊，直接補送，避免卡在「發送中」
+  state.comments.forEach(function (c) {
+    if (c.status === 'pending') {
+      var r = ruleById(c.ruleId);
+      if (r) deliver(c, r); else c.status = 'none';
+    }
+  });
+  $('optOnce').checked = !!state.settings.once;
+  $('optReply').checked = !!state.settings.reply;
+  shuffleUser();
+  renderAll();
+})();
+</script>
+</body>
+</html>
